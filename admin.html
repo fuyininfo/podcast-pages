@@ -123,7 +123,7 @@
             </div>
 
             <div style="margin-top: 15px;">
-                <button onclick="createEpisode()">🚀 生成节目文件</button>
+                <button onclick="createEpisode()">🚀 生成节目文件 (强制写入播放器)</button>
             </div>
             <div id="ep-msg" class="status hidden"></div>
         </div>
@@ -139,9 +139,8 @@
                 <li>等待 1-2 分钟，RSS 即可自动更新。</li>
             </ol>
         </div>
-    </div>
 
-    <div class="card">
+ <div class="card">
             <h2>
                 <span>📡 RSS 与 分类设置</span>
                 <a href="https://podcasters.apple.com/support/1691-apple-podcasts-categories" target="_blank" style="font-size: 0.7em; font-weight: normal;">🔗 查看 Apple Podcast 分类列表</a>
@@ -161,6 +160,10 @@
                 <p class="hint">发布成功后，请将此链接提交给 Apple Podcast, Spotify, 小宇宙等平台。</p>
             </div>
         </div>
+        
+    </div>
+
+   
 
 <script>
     let dirHandle;
@@ -328,6 +331,14 @@
             const now = new Date();
             const dateVal = document.getElementById('ep-date').value;
             const timeStr = now.toTimeString().split(' ')[0];
+
+            // --- 核心修改：强制插入 HTML5 播放器代码 ---
+            const playerCode = `
+<audio controls preload="none" style="width: 100%; margin: 20px 0; background: #f1f3f4; border-radius: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+  <source src="{{ site.url }}{{ site.baseurl }}/assets/audio/${audioName}" type="audio/mpeg">
+  您的浏览器不支持播放音频，请下载文件播放。
+</audio>
+`;
             
             const mdContent = `---
 layout: post
@@ -344,6 +355,8 @@ block: "no"
 voices: ""
 ---
 
+${playerCode}
+
 ${desc}
 `;
             
@@ -352,7 +365,7 @@ ${desc}
             await writablePost.write(mdContent);
             await writablePost.close();
 
-            msgDiv.innerHTML = `<strong>✅ 成功！</strong><br>音频: ${audioName}<br>页面: ${postName}<br>请打开 GitHub Desktop 提交。`;
+            msgDiv.innerHTML = `<strong>✅ 成功！播放器已植入</strong><br>音频: ${audioName}<br>页面: ${postName}<br>请打开 GitHub Desktop 提交。`;
             msgDiv.className = "status success";
 
         } catch (e) {
