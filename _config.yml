@@ -9,5 +9,4 @@ exclude:
   - Gemfile
   - Gemfile.lock
 url: https://fuyininfo.github.io/podcast-pages
-baseurl: "/podcast-pages"
 future: true
