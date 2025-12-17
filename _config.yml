@@ -1,7 +1,7 @@
 title: 读要speak-LO
-description: Read and speak LOUD to OUTPUT.
-author: My Name
-email: my@email.com
+description: Read and speak to LOUD OUTPUT.
+author: RSLO
+email: fuyininfo@disroot.org
 lang: en-us
 copyright: '&#x2117; &amp; &#xA9; 2020'
 logo: /assets/img/logo.png
@@ -9,3 +9,5 @@ exclude:
   - Gemfile
   - Gemfile.lock
 url: https://fuyininfo.github.io/podcast-pages
+baseurl: "/podcast-pages"
+future: true
