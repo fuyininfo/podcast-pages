@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Pages 管理控制台</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://unpkg.com/pinyin-pro"></script>
+    <style>
+        :root { --primary: #2ea44f; --bg: #f6f8fa; --border: #d1d5da; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background: var(--bg); color: #24292e; }
+        .card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        h1 { border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        h2 { font-size: 1.2em; margin-top: 0; color: #0366d6; }
+        label { display: block; margin: 10px 0 5px; font-weight: 600; font-size: 0.9em; }
+        input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; }
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; }
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: #fafbfc; color: #24292e; border: 1px solid rgba(27,31,35,0.15); }
+        .hidden { display: none; }
+        .status { margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
+        .success { background: #dcffe4; color: #1a7f37; }
+        .error { background: #ffe3e6; color: #cf222e; }
+        .step-guide { background: #e1f5fe; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 4px solid #03a9f4; }
+        .preview-box { background: #f1f8ff; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin-top: 5px; color: #444; }
+    </style>
+</head>
+<body>
+
+    <h1>🎙️ Podcast Pages 本地管理器</h1>
+
+    <div id="step-connect" class="card">
+        <h2>1. 连接项目文件夹</h2>
+        <p>请点击下方按钮，选择本地的 <code>podcast-pages</code> 文件夹。浏览器会请求读写权限，请点击“允许”。</p>
+        <button onclick="selectDirectory()">📂 打开项目文件夹</button>
+        <p id="dir-status" class="status hidden"></p>
+    </div>
+
+    <div id="main-interface" class="hidden">
+        
+        <div class="card">
+            <h2>2. 网站基础设置 (_config.yml)</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label>播客名称 (Title)</label>
+                    <input type="text" id="cfg-title">
+                </div>
+                <div>
+                    <label>GitHub Pages 链接 (URL)</label>
+                    <input type="text" id="cfg-url" placeholder="https://username.github.io">
+                </div>
+            </div>
+            <label>播客描述 (Description)</label>
+            <textarea id="cfg-desc" rows="3"></textarea>
+            <div style="margin-top:10px;">
+                <button class="secondary" onclick="saveConfig()">💾 保存配置</button>
+                <span id="cfg-msg" style="margin-left: 10px; font-size: 0.8em;"></span>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>3. 发布新节目</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label>节目标题 (Title)</label>
+                    <input type="text" id="ep-title" placeholder="例如：第01期 - 我们的开始">
+                </div>
+                <div>
+                    <label>发布日期</label>
+                    <input type="date" id="ep-date">
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label>时长 (Duration)</label>
+                    <input type="text" id="ep-duration" placeholder="MM:SS (如 45:20)">
+                </div>
+                <div>
+                    <label>内容分级 (Explicit)</label>
+                    <select id="ep-explicit">
+                        <option value="no">No (全年龄)</option>
+                        <option value="yes">Yes (限制级)</option>
+                    </select>
+                </div>
+            </div>
+
+            <label>上传音频文件 (.mp3)</label>
+            <input type="file" id="ep-file" accept=".mp3">
+
+            <label>节目简介 (Description)</label>
+            <textarea id="ep-desc" rows="5" placeholder="本期节目的详细介绍..."></textarea>
+
+            <div class="preview-box">
+                <div>音频将重命名为: <span id="preview-audio">-</span></div>
+                <div>文件将创建为: <span id="preview-post">-</span></div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <button onclick="createEpisode()">🚀 生成节目文件</button>
+            </div>
+            <div id="ep-msg" class="status hidden"></div>
+        </div>
+
+        <div class="step-guide">
+            <h2>4. 最后一步：上传到 GitHub</h2>
+            <ol>
+                <li>打开 <strong>GitHub Desktop</strong> 软件。</li>
+                <li>你会看到 Changes 列表里出现了新的 <code>.mp3</code> 和 <code>.md</code> 文件。</li>
+                <li>在左下角 Summary 框输入：<strong>发布新节目</strong>。</li>
+                <li>点击蓝色按钮 <strong>Commit to master</strong>。</li>
+                <li>点击顶部按钮 <strong>Push origin</strong>。</li>
+            </ol>
+        </div>
+    </div>
+
+<script>
+    let dirHandle;
+    const { pinyin } = pinyinPro; // 初始化拼音库
+
+    // 监听输入以更新预览
+    document.getElementById('ep-title').addEventListener('input', updatePreview);
+    document.getElementById('ep-date').addEventListener('change', updatePreview);
+    document.getElementById('ep-file').addEventListener('change', updatePreview);
+
+    function toPinyinString(str, separator = '') {
+        // 使用 pinyin-pro 将汉字转为无声调拼音，非汉字部分保留
+        // type: 'array' 返回数组，toneType: 'none' 去声调
+        const pinyinArr = pinyin(str, { toneType: 'none', type: 'array', nonZh: 'consecutive' });
+        // 过滤掉特殊字符，只保留字母、数字
+        const cleanArr = pinyinArr.map(item => item.replace(/[^a-zA-Z0-9]/g, '').toLowerCase());
+        // 过滤空字符串并连接
+        return cleanArr.filter(i => i).join(separator);
+    }
+
+    function updatePreview() {
+        const title = document.getElementById('ep-title').value || 'untitled';
+        const dateVal = document.getElementById('ep-date').value || '2025-01-01';
+        const fileInput = document.getElementById('ep-file');
+        
+        let audioName = "未选择文件";
+        if (fileInput.files.length > 0) {
+            const originalName = fileInput.files[0].name.replace(/\.mp3$/i, '');
+            // 音频文件名：拼音连写，无空格
+            audioName = toPinyinString(originalName, '') + ".mp3";
+        }
+
+        // 帖子文件名：日期-拼音标题 (用短横线分隔)
+        const postName = `${dateVal}-${toPinyinString(title, '-')}.md`;
+
+        document.getElementById('preview-audio').innerText = audioName;
+        document.getElementById('preview-post').innerText = `_posts/${postName}`;
+        
+        return { audioName, postName };
+    }
+
+    // 1. 选择并验证目录
+    async function selectDirectory() {
+        try {
+            dirHandle = await window.showDirectoryPicker();
+            try {
+                await dirHandle.getFileHandle('_config.yml');
+            } catch (e) {
+                alert("错误：这不是 podcast-pages 项目文件夹（找不到 _config.yml）。");
+                return;
+            }
+            document.getElementById('step-connect').classList.add('hidden');
+            document.getElementById('main-interface').classList.remove('hidden');
+            document.getElementById('ep-date').valueAsDate = new Date();
+            loadConfig();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // 2. 读取配置
+    async function loadConfig() {
+        try {
+            const fileHandle = await dirHandle.getFileHandle('_config.yml');
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            const config = jsyaml.load(text);
+            document.getElementById('cfg-title').value = config.title || '';
+            document.getElementById('cfg-url').value = config.url || '';
+            document.getElementById('cfg-desc').value = config.description || '';
+        } catch (e) { console.error(e); }
+    }
+
+    // 3. 保存配置
+    async function saveConfig() {
+        try {
+            const fileHandle = await dirHandle.getFileHandle('_config.yml', { create: false });
+            const file = await fileHandle.getFile();
+            const text = await file.text();
+            let config = jsyaml.load(text) || {};
+            config.title = document.getElementById('cfg-title').value;
+            config.url = document.getElementById('cfg-url').value;
+            config.description = document.getElementById('cfg-desc').value;
+            const writable = await fileHandle.createWritable();
+            await writable.write(jsyaml.dump(config));
+            await writable.close();
+            const msg = document.getElementById('cfg-msg');
+            msg.innerText = "已保存!";
+            msg.style.color = "green";
+            setTimeout(() => msg.innerText = "", 2000);
+        } catch (e) { alert("保存失败: " + e.message); }
+    }
+
+    // 4. 创建节目
+    async function createEpisode() {
+        const title = document.getElementById('ep-title').value;
+        const fileInput = document.getElementById('ep-file');
+        const desc = document.getElementById('ep-desc').value;
+        const duration = document.getElementById('ep-duration').value;
+        const explicit = document.getElementById('ep-explicit').value;
+        const msgDiv = document.getElementById('ep-msg');
+
+        if (!title || fileInput.files.length === 0) {
+            alert("请填写标题并选择 MP3 文件");
+            return;
+        }
+
+        msgDiv.innerText = "正在处理...";
+        msgDiv.className = "status";
+        msgDiv.classList.remove('hidden');
+
+        try {
+            const audioFile = fileInput.files[0];
+            const { audioName, postName } = updatePreview(); // 获取计算好的拼音文件名
+
+            // --- A. 保存音频文件 ---
+            const assetsDir = await dirHandle.getDirectoryHandle('assets', { create: true });
+            const audioDir = await assetsDir.getDirectoryHandle('audio', { create: true });
+            
+            const newAudioHandle = await audioDir.getFileHandle(audioName, { create: true });
+            const writableAudio = await newAudioHandle.createWritable();
+            await writableAudio.write(audioFile);
+            await writableAudio.close();
+
+            // --- B. 生成 Markdown 文件 ---
+            const postsDir = await dirHandle.getDirectoryHandle('_posts', { create: true });
+            
+            const fileSize = audioFile.size;
+            const now = new Date();
+            const dateVal = document.getElementById('ep-date').value;
+            const timeStr = now.toTimeString().split(' ')[0];
+            const fullDate = `${dateVal} ${timeStr}`;
+
+            const mdContent = `---
+layout: post
+title: "${title}"
+date: ${fullDate} -0000
+file: /assets/audio/${audioName}
+summary: "${desc.substring(0, 100).replace(/\n/g, ' ').replace(/"/g, '\\"')}"
+description: "${desc.replace(/"/g, '\\"')}"
+duration: "${duration}"
+length: "${fileSize}"
+explicit: "${explicit}"
+keywords: ""
+block: "no"
+voices: ""
+---
+
+${desc}
+`;
+            
+            const newPostHandle = await postsDir.getFileHandle(postName, { create: true });
+            const writablePost = await newPostHandle.createWritable();
+            await writablePost.write(mdContent);
+            await writablePost.close();
+
+            msgDiv.innerHTML = `<strong>✅ 成功！</strong><br>1. 音频已重命名并保存: <code>assets/audio/${audioName}</code><br>2. 页面文件已创建: <code>_posts/${postName}</code><br>请打开 GitHub Desktop 提交更改。`;
+            msgDiv.className = "status success";
+
+        } catch (e) {
+            console.error(e);
+            msgDiv.innerText = "发生错误: " + e.message;
+            msgDiv.className = "status error";
+        }
+    }
+</script>
+</body>
+</html>
