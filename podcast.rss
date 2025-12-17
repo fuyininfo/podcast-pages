@@ -18,7 +18,7 @@ layout: null
     </itunes:owner>
     <itunes:image href="{{ site.url }}{{ site.baseurl }}/assets/img/logo.png" />
     
-    <itunes:category text="Art">
+    <itunes:category text="Arts">
         <itunes:category text="Books" />
     </itunes:category>
     <itunes:category text="Society &amp; Culture">
