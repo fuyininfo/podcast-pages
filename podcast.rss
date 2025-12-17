@@ -17,11 +17,13 @@ layout: null
       <itunes:email>{{ site.email | xml_escape }}</itunes:email>
     </itunes:owner>
     <itunes:image href="{{ site.url }}{{ site.baseurl }}/assets/img/logo.png" />
- <itunes:category text="Art">
-            <itunes:category text="Books" />
-        </itunes:category>
-        <itunes:category text="Society &amp; Culture">
-            <itunes:category text="Documentary" />
+    
+    <itunes:category text="Art">
+        <itunes:category text="Books" />
+    </itunes:category>
+    <itunes:category text="Society &amp; Culture">
+        <itunes:category text="Documentary" />
+    </itunes:category>
     <itunes:category text="Technology" />
     <itunes:explicit>no</itunes:explicit>
 
