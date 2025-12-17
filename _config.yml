@@ -8,5 +8,6 @@ logo: /assets/img/logo.png
 exclude:
   - Gemfile
   - Gemfile.lock
-url: https://fuyininfo.github.io/podcast-pages
+url: https://fuyininfo.github.io
+baseurl: "/podcast-pages"
 future: true
