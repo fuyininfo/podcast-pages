@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Podcast Pages 管理控制台</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="https://unpkg.com/pinyin-pro"></script>
+    <style>
+        :root { --primary: #2ea44f; --bg: #f6f8fa; --border: #d1d5da; --text: #24292e; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 1100px; margin: 0 auto; padding: 20px; background: var(--bg); color: var(--text); }
+        
+        /* 布局组件 */
+        .header { margin-bottom: 20px; border-bottom: 1px solid var(--border); padding-bottom: 10px; }
+        .main-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; align-items: start; }
+        
+        /* 响应式：小屏幕变单栏 */
+        @media (max-width: 768px) {
+            .main-layout { grid-template-columns: 1fr; }
+            .side-column { order: -1; } /* 手机上让侧边栏显示在上面 */
+        }
+
+        .container { display: grid; gap: 20px; }
+        .card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .hidden { display: none; }
+        
+        /* 标题与文本 */
+        h1 { margin: 0; }
+        h2 { font-size: 1.2em; margin-top: 0; color: #0366d6; display: flex; align-items: center; justify-content: space-between; }
+        h3 { font-size: 1em; margin: 0 0 10px 0; color: #586069; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        label { display: block; margin: 12px 0 6px; font-weight: 600; font-size: 0.9em; }
+        p.hint { font-size: 0.85em; color: #586069; margin: 5px 0; }
+        a { color: #0366d6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        /* 表单元素 */
+        input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 4px; box-sizing: border-box; font-family: inherit; }
+        textarea.code-editor { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 13px; background: #f6f8fa; min-height: 200px; }
+        
+        /* 按钮 */
+        button { background-color: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.secondary { background-color: #f3f4f6; color: #24292e; border: 1px solid rgba(27,31,35,0.15); }
+        button.secondary:hover { background-color: #edeff2; }
+        button.small { padding: 5px 10px; font-size: 12px; }
+
+        /* 状态提示 */
+        .status { margin-top: 10px; padding: 10px; border-radius: 4px; font-size: 0.9em; }
+        .success { background: #dcffe4; color: #1a7f37; border: 1px solid #b4eebf; }
+        .error { background: #ffe3e6; color: #cf222e; border: 1px solid #ffb3b8; }
+        .info-box { background: #e1f5fe; padding: 15px; border-radius: 6px; border-left: 4px solid #03a9f4; margin-bottom: 20px; }
+        
+        /* 预览区域 */
+        .preview-box { background: #f1f8ff; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 0.85em; margin-top: 5px; color: #444; border: 1px solid #c8e1ff; }
+        .rss-link-box { background: #fffbdd; padding: 10px; border: 1px solid #fff5b1; border-radius: 4px; font-weight: bold; word-break: break-all; margin-top: 5px; color: #735c0f; }
+
+        /* 侧边栏样式 */
+        .logo-preview { width: 100%; max-width: 150px; display: block; margin: 10px auto; border-radius: 6px; border: 1px solid #eee; }
+        .episode-list { list-style: none; padding: 0; max-height: 400px; overflow-y: auto; }
+        .episode-list li { padding: 8px 0; border-bottom: 1px solid #eee; font-size: 0.9em; }
+        .episode-list li:last-child { border-bottom: none; }
+        .episode-date { color: #586069; font-size: 0.85em; display: block; margin-bottom: 2px; }
+        .episode-title { font-weight: 600; color: #24292e; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🎙️ Podcast Pages 本地管理器</h1>
+    </div>
+
+    <div id="step-connect" class="card">
+        <h2>📂 第一步：连接项目</h2>
+        <p>请点击按钮选择本地的 <code>podcast-pages</code> 文件夹。</p>
+        <button onclick="selectDirectory()">打开项目文件夹</button>
+        <p id="dir-status" class="status hidden"></p>
+    </div>
+
+    <div id="main-interface" class="main-layout hidden">
+        
+        <div class="main-column">
+            
+            <div class="card">
+                <h2>⚙️ 网站基础设置</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>播客名称 (Title)</label>
+                        <input type="text" id="cfg-title" oninput="updateRSSUrlDisplay()">
+                    </div>
+                    <div>
+                        <label>GitHub Pages 链接 (URL)</label>
+                        <input type="text" id="cfg-url" placeholder="https://username.github.io" oninput="updateRSSUrlDisplay()">
+                    </div>
+                </div>
+                <div>
+                    <label>仓库名称 (Baseurl)</label>
+                    <input type="text" id="cfg-baseurl" placeholder="/podcast-pages" oninput="updateRSSUrlDisplay()">
+                    <p class="hint">如果是根域名则留空，否则以 / 开头，例如 <code>/podcast-pages</code></p>
+                </div>
+                <label>播客描述</label>
+                <textarea id="cfg-desc" rows="2"></textarea>
+                <div style="margin-top:10px;">
+                    <button class="secondary" onclick="saveConfig()">💾 保存配置</button>
+                    <span id="cfg-msg" style="margin-left: 10px; font-size: 0.8em;"></span>
+                </div>
+            </div>
+
+            <div class="card" style="border-left: 4px solid var(--primary);">
+                <h2>🆕 发布新节目</h2>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>节目标题</label>
+                        <input type="text" id="ep-title" placeholder="例如：第01期 - 聊聊技术">
+                    </div>
+                    <div>
+                        <label>发布日期</label>
+                        <input type="date" id="ep-date">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label>时长</label>
+                        <input type="text" id="ep-duration" placeholder="MM:SS (如 45:20)">
+                    </div>
+                    <div>
+                        <label>内容分级</label>
+                        <select id="ep-explicit">
+                            <option value="no">No (全年龄)</option>
+                            <option value="yes">Yes (限制级)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <label>上传音频文件 (.mp3)</label>
+                <input type="file" id="ep-file" accept=".mp3">
+
+                <label>节目简介</label>
+                <textarea id="ep-desc" rows="4" placeholder="本期节目的详细介绍..."></textarea>
+
+                <div class="preview-box">
+                    <div>🎵 音频: <span id="preview-audio">-</span></div>
+                    <div>📄 页面: <span id="preview-post">-</span></div>
+                </div>
+
+                <div style="margin-top: 15px;">
+                    <button onclick="createEpisode()">🚀 生成节目文件 (强制写入播放器)</button>
+                </div>
+                <div id="ep-msg" class="status hidden"></div>
+            </div>
+
+            <div class="card">
+                <h2>
+                    <span>📡 RSS 与 分类设置</span>
+                    <a href="https://podcasters.apple.com/support/1691-apple-podcasts-categories" target="_blank" style="font-size: 0.7em; font-weight: normal;">🔗 分类表</a>
+                </h2>
+                <p class="hint">严格保留 XML 格式，修改 <code>&lt;itunes:category&gt;</code>。</p>
+                <textarea id="rss-editor" class="code-editor" spellcheck="false"></textarea>
+                <div style="margin-top: 10px;">
+                    <button class="secondary" onclick="saveRSS()">💾 保存 RSS 设置</button>
+                    <span id="rss-msg" style="margin-left: 10px; font-size: 0.8em;"></span>
+                </div>
+                <div style="margin-top: 15px;">
+                    <label>RSS 订阅链接:</label>
+                    <div id="final-rss-url" class="rss-link-box">...</div>
+                </div>
+            </div>
+            
+            <div class="info-box">
+                <h2>📤 同步指南</h2>
+                <p>文件生成后，请打开 <strong>GitHub Desktop</strong>：</p>
+                <ol>
+                    <li>检查左侧 Changes 列表，确认有新的 <code>.mp3</code> 和 <code>.md</code> 文件。</li>
+                <li>在 Summary 框输入备注（如“发布新节目”）。</li>
+                <li>点击 <strong>Commit to master</strong>。</li>
+                <li>点击顶部 <strong>Push origin</strong>。</li>
+                <li>等待 1-2 分钟，RSS 即可自动更新。</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="side-column">
+            
+            <div class="card" style="text-align: center;">
+                <h3>🖼️ 播客 Logo</h3>
+                <img id="current-logo" src="" alt="暂无 Logo" class="logo-preview">
+                <input type="file" id="logo-upload" accept="image/png, image/jpeg" style="display: none;" onchange="handleLogoUpload()">
+                <button class="secondary small" onclick="document.getElementById('logo-upload').click()">📂 更换 Logo</button>
+                <p class="hint">建议 1400x1400 像素，png/jpg</p>
+            </div>
+
+            <div class="card">
+                <h3>📋 已发布节目</h3>
+                <ul id="episode-list" class="episode-list">
+                    <li style="text-align: center; color: #999;">正在加载...</li>
+                </ul>
+                <div style="margin-top: 10px; text-align: center;">
+                    <button class="secondary small" onclick="loadEpisodes()">🔄 刷新列表</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+<script>
+    let dirHandle;
+    const { pinyin } = pinyinPro;
+
+    // --- 界面交互逻辑 ---
+    
+    document.getElementById('ep-title').addEventListener('input', updatePreview);
+    document.getElementById('ep-date').addEventListener('change', updatePreview);
+    document.getElementById('ep-file').addEventListener('change', updatePreview);
+
+    function toPinyinString(str, separator = '') {
+        const pinyinArr = pinyin(str, { toneType: 'none', type: 'array', nonZh: 'consecutive' });
+        const cleanArr = pinyinArr.map(item => item.replace(/[^a-zA-Z0-9]/g, '').toLowerCase());
+        return cleanArr.filter(i => i).join(separator);
+    }
+
+    function updatePreview() {
+        const title = document.getElementById('ep-title').value || 'untitled';
+        const dateVal = document.getElementById('ep-date').value || '2025-01-01';
+        const fileInput = document.getElementById('ep-file');
+        
+        let audioName = "未选择文件";
+        if (fileInput.files.length > 0) {
+            const originalName = fileInput.files[0].name.replace(/\.mp3$/i, '');
+            audioName = toPinyinString(originalName, '') + ".mp3";
+        }
+        const postName = `${dateVal}-${toPinyinString(title, '-')}.md`;
+
+        document.getElementById('preview-audio').innerText = audioName;
+        document.getElementById('preview-post').innerText = `_posts/${postName}`;
+        return { audioName, postName };
+    }
+
+    function updateRSSUrlDisplay() {
+        const url = document.getElementById('cfg-url').value.replace(/\/$/, '');
+        let baseurl = document.getElementById('cfg-baseurl').value.trim();
+        if (baseurl && !baseurl.startsWith('/')) baseurl = '/' + baseurl;
+        baseurl = baseurl.replace(/\/$/, '');
+        document.getElementById('final-rss-url').innerText = `${url}${baseurl}/podcast.rss`;
+    }
+
+    // --- 文件系统操作 ---
+
+    async function selectDirectory() {
+        try {
+            dirHandle = await window.showDirectoryPicker();
+            try { await dirHandle.getFileHandle('_config.yml'); } 
+            catch (e) { alert("错误：找不到 _config.yml。"); return; }
+
+            document.getElementById('step-connect').classList.add('hidden');
+            document.getElementById('main-interface').classList.remove('hidden');
+            document.getElementById('ep-date').valueAsDate = new Date();
+            
+            await loadConfig();
+            await loadRSS();
+            await loadLogo();     // 加载 Logo
+            await loadEpisodes(); // 加载节目列表
+
+        } catch (err) { console.error(err); }
+    }
+
+    // --- Logo 功能 ---
+    async function loadLogo() {
+        try {
+            // 尝试读取 assets/img/logo.png
+            const assetsDir = await dirHandle.getDirectoryHandle('assets');
+            const imgDir = await assetsDir.getDirectoryHandle('img');
+            const fileHandle = await imgDir.getFileHandle('logo.png');
+            const file = await fileHandle.getFile();
+            const url = URL.createObjectURL(file);
+            document.getElementById('current-logo').src = url;
+        } catch (e) {
+            console.log("未找到 Logo 或路径不存在");
+            document.getElementById('current-logo').alt = "未找到 assets/img/logo.png";
+        }
+    }
+
+    async function handleLogoUpload() {
+        const fileInput = document.getElementById('logo-upload');
+        if (fileInput.files.length === 0) return;
+        
+        try {
+            const file = fileInput.files[0];
+            // 确保目录存在
+            const assetsDir = await dirHandle.getDirectoryHandle('assets', { create: true });
+            const imgDir = await assetsDir.getDirectoryHandle('img', { create: true });
+            
+            // 写入 logo.png (强制重命名)
+            const fileHandle = await imgDir.getFileHandle('logo.png', { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(file);
+            await writable.close();
+
+            alert("Logo 已更新！");
+            loadLogo(); // 刷新显示
+        } catch (e) {
+            alert("更换 Logo 失败: " + e.message);
+        }
+    }
+
+    // --- 节目列表功能 ---
+    async function loadEpisodes() {
+        const listEl = document.getElementById('episode-list');
+        listEl.innerHTML = '<li style="text-align: center; color: #999;">加载中...</li>';
+        
+        try {
+            const postsDir = await dirHandle.getDirectoryHandle('_posts');
+            const episodes = [];
+
+            // 遍历文件
+            for await (const entry of postsDir.values()) {
+                if (entry.kind === 'file' && entry.name.endsWith('.md')) {
+                    const file = await entry.getFile();
+                    const text = await file.text();
+                    
+                    // 简单的正则提取 Title 和 Date
+                    const titleMatch = text.match(/title:\s*"(.*?)"/);
+                    const dateMatch = entry.name.match(/^(\d{4}-\d{2}-\d{2})/); // 从文件名提取日期最准
+                    
+                    if (titleMatch) {
+                        episodes.push({
+                            title: titleMatch[1],
+                            date: dateMatch ? dateMatch[1] : '未知日期',
+                            filename: entry.name
+                        });
+                    }
+                }
+            }
+
+            // 按日期倒序排序
+            episodes.sort((a, b) => b.date.localeCompare(a.date));
+
+            // 渲染列表
+            listEl.innerHTML = '';
+            if (episodes.length === 0) {
+                listEl.innerHTML = '<li style="text-align: center;">暂无节目</li>';
+            } else {
+                episodes.forEach(ep => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `
+                        <span class="episode-date">${ep.date}</span>
+                        <span class="episode-title">${ep.title}</span>
+                    `;
+                    listEl.appendChild(li);
+                });
+            }
+
+        } catch (e) {
+            console.error(e);
+            listEl.innerHTML = '<li style="color: red;">读取列表失败</li>';
+        }
+    }
+
+    // --- 基础配置功能 ---
+    async function loadConfig() {
+        try {
+            const fileHandle = await dirHandle.getFileHandle('_config.yml');
+            const file = await fileHandle.getFile();
+            const config = jsyaml.load(await file.text());
+            document.getElementById('cfg-title').value = config.title || '';
+            document.getElementById('cfg-url').value = config.url || '';
+            document.getElementById('cfg-baseurl').value = config.baseurl || '';
+            document.getElementById('cfg-desc').value = config.description || '';
+            updateRSSUrlDisplay();
+        } catch (e) { console.error(e); }
+    }
+
+    async function saveConfig() {
+        try {
+            const fileHandle = await dirHandle.getFileHandle('_config.yml', { create: false });
+            const text = await (await fileHandle.getFile()).text();
+            let config = jsyaml.load(text) || {};
+            config.title = document.getElementById('cfg-title').value;
+            config.url = document.getElementById('cfg-url').value;
+            config.baseurl = document.getElementById('cfg-baseurl').value;
+            config.description = document.getElementById('cfg-desc').value;
+            const writable = await fileHandle.createWritable();
+            await writable.write(jsyaml.dump(config));
+            await writable.close();
+            showMsg('cfg-msg', '已保存!', 'green');
+            updateRSSUrlDisplay();
+        } catch (e) { alert("保存失败: " + e.message); }
+    }
+
+    async function loadRSS() {
+        try {
+            const fileHandle = await dirHandle.getFileHandle('podcast.rss');
+            document.getElementById('rss-editor').value = await (await fileHandle.getFile()).text();
+        } catch (e) { document.getElementById('rss-editor').value = "未找到 podcast.rss"; }
+    }
+
+    async function saveRSS() {
+        try {
+            const content = document.getElementById('rss-editor').value;
+            const fileHandle = await dirHandle.getFileHandle('podcast.rss', { create: true });
+            const writable = await fileHandle.createWritable();
+            await writable.write(content);
+            await writable.close();
+            showMsg('rss-msg', 'RSS 已更新', 'green');
+        } catch (e) { alert("保存失败: " + e.message); }
+    }
+
+    async function createEpisode() {
+        const title = document.getElementById('ep-title').value;
+        const fileInput = document.getElementById('ep-file');
+        const desc = document.getElementById('ep-desc').value;
+        const duration = document.getElementById('ep-duration').value;
+        const explicit = document.getElementById('ep-explicit').value;
+        const msgDiv = document.getElementById('ep-msg');
+
+        if (!title || fileInput.files.length === 0) { alert("请填写完整"); return; }
+        msgDiv.innerText = "处理中..."; msgDiv.className = "status"; msgDiv.classList.remove('hidden');
+
+        try {
+            const audioFile = fileInput.files[0];
+            const { audioName, postName } = updatePreview();
+
+            // 保存音频
+            const assetsDir = await dirHandle.getDirectoryHandle('assets', { create: true });
+            const audioDir = await assetsDir.getDirectoryHandle('audio', { create: true });
+            const newAudioHandle = await audioDir.getFileHandle(audioName, { create: true });
+            const writableAudio = await newAudioHandle.createWritable();
+            await writableAudio.write(audioFile);
+            await writableAudio.close();
+
+            // 生成 Markdown
+            const postsDir = await dirHandle.getDirectoryHandle('_posts', { create: true });
+            const fileSize = audioFile.size;
+            const now = new Date();
+            const dateVal = document.getElementById('ep-date').value;
+            const timeStr = now.toTimeString().split(' ')[0];
+            
+            const playerCode = `
+<audio controls preload="none" style="width: 100%; margin: 20px 0; background: #f1f3f4; border-radius: 30px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+  <source src="{{ site.url }}{{ site.baseurl }}/assets/audio/${audioName}" type="audio/mpeg">
+  您的浏览器不支持播放音频，请下载文件播放。
+</audio>`;
+
+            const mdContent = `---
+layout: post
+title: "${title}"
+date: ${dateVal} ${timeStr} -0000
+file: /assets/audio/${audioName}
+summary: "${desc.substring(0, 100).replace(/\n/g, ' ').replace(/"/g, '\\"')}"
+description: "${desc.replace(/"/g, '\\"')}"
+duration: "${duration}"
+length: "${fileSize}"
+explicit: "${explicit}"
+keywords: ""
+block: "no"
+voices: ""
+---
+
+${playerCode}
+
+${desc}
+`;
+            
+            const newPostHandle = await postsDir.getFileHandle(postName, { create: true });
+            const writablePost = await newPostHandle.createWritable();
+            await writablePost.write(mdContent);
+            await writablePost.close();
+
+            msgDiv.innerHTML = `<strong>✅ 成功！</strong><br>已生成: ${postName}<br>请去 GitHub Desktop 提交。`;
+            msgDiv.className = "status success";
+            
+            // 成功后刷新列表
+            loadEpisodes();
+
+        } catch (e) {
+            console.error(e);
+            msgDiv.innerText = "错误: " + e.message;
+            msgDiv.className = "status error";
+        }
+    }
+
+    function showMsg(id, text, color) {
+        const el = document.getElementById(id);
+        el.innerText = text;
+        el.style.color = color;
+        setTimeout(() => el.innerText = "", 3000);
+    }
+</script>
+</body>
+</html>
